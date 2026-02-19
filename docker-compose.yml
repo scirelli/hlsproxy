@@ -1,0 +1,8 @@
+services:
+  hlsproxy:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./streams.txt:/config/streams.txt:ro
+    restart: unless-stopped

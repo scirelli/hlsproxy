@@ -1,0 +1,27 @@
+# HLS Proxy Streams Configuration
+# Format: <rtsp-url> | <display-name>
+#
+# Examples:
+#
+# Basic stream (no authentication):
+# rtsp://192.168.1.100:554/cam/realmonitor?channel=1&subtype=0 | Front Door
+#
+# Stream with inline credentials:
+# rtsp://admin:password@192.168.1.101:554/stream1 | Backyard
+#
+# Stream with URL-encoded special characters in password:
+# rtsp://admin:p%40ssw%21rd@192.168.1.102:554/stream1 | Garage
+# Common encodings: @ = %40, ! = %21, # = %23, : = %3A, / = %2F
+#
+# Extended format with separate credentials (for complex passwords):
+# -u admin p@ssw!rd rtsp://192.168.1.103:554/stream1 | Driveway
+#
+# Lorex camera examples:
+# rtsp://192.168.1.100:554/cam/realmonitor?channel=1&subtype=0 | Front Door (Main)
+# rtsp://192.168.1.100:554/cam/realmonitor?channel=1&subtype=1 | Front Door (Sub)
+#
+# Add your streams below:
+
+rtsp://192.168.1.100:554/cam/realmonitor?channel=1&subtype=0 | Front Door
+rtsp://192.168.1.101:554/cam/realmonitor?channel=1&subtype=0 | Back Yard
+rtsp://admin:password@192.168.1.102:554/stream1 | Garage

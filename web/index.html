@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Cameras</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+</head>
+<body>
+    <header>
+        <h1>Security Cameras</h1>
+        <div class="controls">
+            <button id="refresh-all" title="Refresh All">↻ Refresh All</button>
+        </div>
+    </header>
+
+    <main id="camera-grid" class="camera-grid">
+        <div class="loading-message">Loading cameras...</div>
+    </main>
+
+    <script type="module" src="components/camera-view.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
