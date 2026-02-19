@@ -19,8 +19,8 @@ RUN wget -q https://download.live555.com/live555-latest.tar.gz \
 
 # Build LIVE555 with OpenSSL support
 WORKDIR /build/live
-RUN ./genMakefiles linux-with-shared-libraries \
-    && sed -i 's/CPLUSPLUS_FLAGS =/CPLUSPLUS_FLAGS = -std=c++20/' config.linux-with-shared-libraries \
+RUN sed -i 's/CPLUSPLUS_FLAGS =/CPLUSPLUS_FLAGS = -std=c++20/' config.linux-with-shared-libraries \
+    && ./genMakefiles linux-with-shared-libraries \
     && make -j$(nproc)
 
 # Stage 2: Runtime container
