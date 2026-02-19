@@ -17,10 +17,10 @@ RUN wget -q https://download.live555.com/live555-latest.tar.gz \
     && tar xzf live555-latest.tar.gz \
     && rm live555-latest.tar.gz
 
-# Build LIVE555 with OpenSSL support
+# Build LIVE555 with static linking
 WORKDIR /build/live
-RUN sed -i 's/CPLUSPLUS_FLAGS =/CPLUSPLUS_FLAGS = -std=c++20/' config.linux-with-shared-libraries \
-    && ./genMakefiles linux-with-shared-libraries \
+RUN sed -i 's/CPLUSPLUS_FLAGS =/CPLUSPLUS_FLAGS = -std=c++20/' config.linux \
+    && ./genMakefiles linux \
     && make -j$(nproc)
 
 # Stage 2: Runtime container
@@ -53,6 +53,6 @@ COPY web/ /var/www/html/
 COPY scripts/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-EXPOSE 8080
+EXPOSE 80
 
 ENTRYPOINT ["/entrypoint.sh"]
