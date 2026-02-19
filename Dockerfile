@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /build
 
 # Download and extract LIVE555
-RUN wget -q http://www.live555.com/liveMedia/public/live555-latest.tar.gz \
+RUN wget -q https://download.live555.com/live555-latest.tar.gz \
     && tar xzf live555-latest.tar.gz \
     && rm live555-latest.tar.gz
 

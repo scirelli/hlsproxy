@@ -60,13 +60,19 @@ A containerized solution to convert Lorex security camera RTSP streams to HLS (H
    rtsp://192.168.1.101:554/cam/realmonitor?channel=1&subtype=0 | Back Yard
    ```
 
-3. **Build and run:**
+3. **Build the image:**
+
+   ```bash
+   docker build -t org.cirelli.hlsproxy.cameras .
+   ```
+
+4. **Run:**
 
    ```bash
    docker compose up -d
    ```
 
-4. **Open your browser:**
+5. **Open your browser:**
 
    Navigate to `http://localhost:8080`
 
@@ -128,7 +134,7 @@ rtsp://<ip>:554/cam/realmonitor?channel=1&subtype=1
 ```yaml
 services:
   hlsproxy:
-    build: .
+    image: org.cirelli.hlsproxy.cameras
     ports:
       - "8080:8080"      # Web UI port
     volumes:
@@ -155,7 +161,7 @@ The web interface provides:
 ### Building the Image
 
 ```bash
-docker build -t hlsproxy .
+docker build -t org.cirelli.hlsproxy.cameras .
 ```
 
 ### Running Without Docker Compose
@@ -165,7 +171,7 @@ docker run -d \
   -p 8080:8080 \
   -v $(pwd)/streams.txt:/config/streams.txt:ro \
   --name hlsproxy \
-  hlsproxy
+  org.cirelli.hlsproxy.cameras
 ```
 
 ### Viewing Logs
