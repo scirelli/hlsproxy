@@ -1,6 +1,8 @@
 # Stage 1: Build LIVE555 from source
 FROM debian:bookworm-slim AS builder
 
+LABEL org.opencontainers.image.name="org.cirelli.hlsproxy.cameras"
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libssl-dev \
