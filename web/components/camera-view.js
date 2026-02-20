@@ -248,18 +248,18 @@ class CameraView extends HTMLElement {
     initHls() {
         this.hls = new Hls({
             enableWorker: true,
-            lowLatencyMode: true,
-            backBufferLength: 30,
-            maxBufferLength: 10,
-            maxMaxBufferLength: 30,
-            liveSyncDurationCount: 3,
-            liveMaxLatencyDurationCount: 6,
+            lowLatencyMode: false,        // Disable low latency to reduce CPU
+            backBufferLength: 10,         // Reduce back buffer
+            maxBufferLength: 6,           // Only buffer ~1 segment ahead
+            maxMaxBufferLength: 12,       // Cap max buffer
+            liveSyncDurationCount: 2,     // Stay closer to live edge
+            liveMaxLatencyDurationCount: 4,
             manifestLoadingTimeOut: 10000,
-            manifestLoadingMaxRetry: 3,
+            manifestLoadingMaxRetry: 2,
             levelLoadingTimeOut: 10000,
-            levelLoadingMaxRetry: 3,
+            levelLoadingMaxRetry: 2,
             fragLoadingTimeOut: 20000,
-            fragLoadingMaxRetry: 3,
+            fragLoadingMaxRetry: 2,
         });
 
         this.hls.loadSource(this.src);
