@@ -105,7 +105,8 @@ while IFS= read -r line || [ -n "$line" ]; do
     chown www-data:www-data "$cam_dir"
 
     # Build HLS proxy command
-    hls_output="${cam_dir}/${cam_id}"
+    # Use relative path for output so m3u8 contains relative segment URLs
+    hls_output="${cam_id}"
 
     if [ "$use_separate_auth" -eq 1 ]; then
         # Use -u flag for credentials
