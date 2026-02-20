@@ -1,10 +1,13 @@
 /**
  * Camera View Web Component
  * Usage: <camera-view src="/streams/cam1/cam1.m3u8" name="Front Door"></camera-view>
+ *
+ * Supports lazy loading - streams only start when clicked.
+ * Add autoplay attribute to start immediately: <camera-view src="..." autoplay></camera-view>
  */
 class CameraView extends HTMLElement {
     static get observedAttributes() {
-        return ['src', 'name'];
+        return ['src', 'name', 'autoplay'];
     }
 
     constructor() {
@@ -14,11 +17,16 @@ class CameraView extends HTMLElement {
         this.retryCount = 0;
         this.maxRetries = 5;
         this.retryDelay = 3000;
+        this.isPlaying = false;
     }
 
     connectedCallback() {
         this.render();
-        this.initPlayer();
+        if (this.hasAttribute('autoplay')) {
+            this.initPlayer();
+        } else {
+            this.showPaused();
+        }
     }
 
     disconnectedCallback() {
@@ -27,7 +35,7 @@ class CameraView extends HTMLElement {
 
     attributeChangedCallback(name, oldValue, newValue) {
         if (oldValue !== newValue) {
-            if (name === 'src') {
+            if (name === 'src' && this.isPlaying) {
                 this.destroyPlayer();
                 this.initPlayer();
             } else if (name === 'name') {
@@ -60,6 +68,7 @@ class CameraView extends HTMLElement {
                     position: relative;
                     width: 100%;
                     height: 100%;
+                    cursor: pointer;
                 }
 
                 video {
@@ -105,6 +114,10 @@ class CameraView extends HTMLElement {
                 .status.loading {
                     background: #f59e0b;
                     animation: pulse 1s infinite;
+                }
+
+                .status.paused {
+                    background: #666;
                 }
 
                 @keyframes pulse {
@@ -190,15 +203,16 @@ class CameraView extends HTMLElement {
 
             <div class="container">
                 <video playsinline muted></video>
-                <div class="status loading"></div>
+                <div class="status paused"></div>
                 <div class="label">${this.escapeHtml(this.name)}</div>
                 <div class="controls">
+                    <button class="control-btn play-btn" title="Play/Stop">▶</button>
                     <button class="control-btn fullscreen-btn" title="Fullscreen">⛶</button>
                     <button class="control-btn refresh-btn" title="Refresh">↻</button>
                 </div>
-                <div class="overlay">
-                    <div class="overlay-icon"></div>
-                    <div class="overlay-text"></div>
+                <div class="overlay visible">
+                    <div class="overlay-icon">▶</div>
+                    <div class="overlay-text">Click to play</div>
                 </div>
             </div>
         `;
@@ -208,11 +222,32 @@ class CameraView extends HTMLElement {
         this.overlay = this.shadowRoot.querySelector('.overlay');
         this.overlayIcon = this.shadowRoot.querySelector('.overlay-icon');
         this.overlayText = this.shadowRoot.querySelector('.overlay-text');
+        this.playBtn = this.shadowRoot.querySelector('.play-btn');
 
         // Bind event handlers
-        this.shadowRoot.querySelector('.fullscreen-btn').addEventListener('click', () => this.toggleFullscreen());
-        this.shadowRoot.querySelector('.refresh-btn').addEventListener('click', () => this.refresh());
-        this.video.addEventListener('click', () => this.toggleFullscreen());
+        this.shadowRoot.querySelector('.fullscreen-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleFullscreen();
+        });
+        this.shadowRoot.querySelector('.refresh-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.refresh();
+        });
+        this.playBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.togglePlay();
+        });
+        this.shadowRoot.querySelector('.container').addEventListener('click', () => {
+            if (!this.isPlaying) {
+                this.play();
+            }
+        });
+        this.video.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (this.isPlaying) {
+                this.toggleFullscreen();
+            }
+        });
     }
 
     updateLabel() {
@@ -226,6 +261,33 @@ class CameraView extends HTMLElement {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    play() {
+        if (!this.isPlaying) {
+            this.isPlaying = true;
+            this.playBtn.textContent = '⏹';
+            this.playBtn.title = 'Stop';
+            this.initPlayer();
+        }
+    }
+
+    stop() {
+        if (this.isPlaying) {
+            this.isPlaying = false;
+            this.playBtn.textContent = '▶';
+            this.playBtn.title = 'Play';
+            this.destroyPlayer();
+            this.showPaused();
+        }
+    }
+
+    togglePlay() {
+        if (this.isPlaying) {
+            this.stop();
+        } else {
+            this.play();
+        }
     }
 
     initPlayer() {
@@ -337,6 +399,13 @@ class CameraView extends HTMLElement {
         }
     }
 
+    showPaused() {
+        this.status.className = 'status paused';
+        this.overlay.classList.add('visible');
+        this.overlayIcon.textContent = '▶';
+        this.overlayText.textContent = 'Click to play';
+    }
+
     showLoading() {
         this.status.className = 'status loading';
         this.overlay.classList.add('visible');
@@ -368,7 +437,9 @@ class CameraView extends HTMLElement {
     refresh() {
         this.retryCount = 0;
         this.destroyPlayer();
-        this.initPlayer();
+        if (this.isPlaying) {
+            this.initPlayer();
+        }
     }
 }
 

@@ -2,6 +2,8 @@
     'use strict';
 
     const grid = document.getElementById('camera-grid');
+    const playAllBtn = document.getElementById('play-all');
+    const stopAllBtn = document.getElementById('stop-all');
     const refreshAllBtn = document.getElementById('refresh-all');
 
     async function loadStreams() {
@@ -41,6 +43,24 @@
         grid.innerHTML = `<div class="${isError ? 'error-message' : 'loading-message'}">${text}</div>`;
     }
 
+    function playAll() {
+        const cameras = grid.querySelectorAll('camera-view');
+        cameras.forEach(camera => {
+            if (typeof camera.play === 'function') {
+                camera.play();
+            }
+        });
+    }
+
+    function stopAll() {
+        const cameras = grid.querySelectorAll('camera-view');
+        cameras.forEach(camera => {
+            if (typeof camera.stop === 'function') {
+                camera.stop();
+            }
+        });
+    }
+
     function refreshAll() {
         const cameras = grid.querySelectorAll('camera-view');
         cameras.forEach(camera => {
@@ -50,6 +70,8 @@
         });
     }
 
+    playAllBtn.addEventListener('click', playAll);
+    stopAllBtn.addEventListener('click', stopAll);
     refreshAllBtn.addEventListener('click', refreshAll);
 
     document.addEventListener('DOMContentLoaded', loadStreams);
