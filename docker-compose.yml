@@ -1,8 +1,10 @@
 services:
-  hlsproxy:
-    image: org.cirelli.hlsproxy.cameras
+  webrtc-cameras:
+    image: org.cirelli.webrtc.cameras
     ports:
-      - "8080:8080"
+      - "8080:80"         # Web UI
+      - "8889:8889"       # WebRTC HTTP (WHEP)
+      - "8890:8890/udp"   # WebRTC UDP (media)
     volumes:
       - ./streams.txt:/config/streams.txt:ro
     restart: unless-stopped

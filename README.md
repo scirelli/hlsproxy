@@ -1,10 +1,13 @@
-# HLS Proxy for Lorex Security Cameras
+# WebRTC Proxy for Security Cameras
 
-A containerized solution to convert Lorex security camera RTSP streams to HLS (HTTP Live Streaming) for browser viewing.
+A containerized solution to convert RTSP security camera streams to WebRTC for low-latency browser viewing using MediaMTX.
 
 ## Features
 
-- **RTSP to HLS conversion** using LIVE555 HLS Proxy
+- **RTSP to WebRTC conversion** using MediaMTX
+- **Low latency streaming** - sub-second delay vs 10-30 seconds with HLS
+- **Efficient bandwidth** - single WebRTC connection vs constant HLS segment downloads
+- **On-demand streaming** - cameras only connect when someone is viewing
 - **Multi-camera support** with automatic stream discovery
 - **Responsive web UI** with dark theme for security monitoring
 - **Web Components** for modular, encapsulated camera views
@@ -17,32 +20,27 @@ A containerized solution to convert Lorex security camera RTSP streams to HLS (H
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    Docker Container                      │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │              Supervisor Process                  │    │
-│  │  - Reads /config/streams.txt                    │    │
-│  │  - Spawns one live555HLSProxy per stream        │    │
-│  │  - Manages nginx for web serving                │    │
-│  └─────────────────────────────────────────────────┘    │
 │                                                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │ HLS Proxy 1  │  │ HLS Proxy 2  │  │ HLS Proxy N  │  │
-│  │ (Camera 1)   │  │ (Camera 2)   │  │ (Camera N)   │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
-│         │                │                 │           │
-│         ▼                ▼                 ▼           │
 │  ┌─────────────────────────────────────────────────┐   │
-│  │           /var/www/html/streams/                │   │
-│  │   cam1/*.ts, cam1/index.m3u8                   │   │
-│  │   cam2/*.ts, cam2/index.m3u8                   │   │
+│  │                   MediaMTX                       │   │
+│  │  - Reads RTSP from cameras                      │   │
+│  │  - Serves WebRTC via WHEP protocol              │   │
+│  │  - On-demand connection (sourceOnDemand)        │   │
 │  └─────────────────────────────────────────────────┘   │
-│                         │                              │
+│         │                                              │
+│         │ WebRTC (WHEP)                               │
+│         ▼                                              │
 │  ┌─────────────────────────────────────────────────┐   │
-│  │                   nginx                         │   │
-│  │   - Serves static HTML/CSS/JS                  │   │
-│  │   - Serves HLS segments                        │   │
-│  │   - Port 8080                                  │   │
+│  │                   nginx                          │   │
+│  │   - Serves static HTML/CSS/JS (port 80)         │   │
+│  │   - Proxies /camN/whep to MediaMTX              │   │
 │  └─────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────┘
+
+Exposed Ports:
+  - 80:   Web UI (mapped to 8080 in docker-compose)
+  - 8889: WebRTC HTTP (WHEP signaling)
+  - 8890: WebRTC UDP (media)
 ```
 
 ## Quick Start
@@ -63,7 +61,7 @@ A containerized solution to convert Lorex security camera RTSP streams to HLS (H
 3. **Build the image:**
 
    ```bash
-   docker build -t org.cirelli.hlsproxy.cameras .
+   docker build -t org.cirelli.webrtc.cameras .
    ```
 
 4. **Run:**
@@ -134,9 +132,11 @@ rtsp://<ip>:554/cam/realmonitor?channel=1&subtype=1
 ```yaml
 services:
   hlsproxy:
-    image: org.cirelli.hlsproxy.cameras
+    image: org.cirelli.webrtc.cameras
     ports:
-      - "8080:8080"      # Web UI port
+      - "8080:80"         # Web UI
+      - "8889:8889"       # WebRTC HTTP (WHEP signaling)
+      - "8890:8890/udp"   # WebRTC UDP (media)
     volumes:
       - ./streams.txt:/config/streams.txt:ro
     restart: unless-stopped
@@ -161,17 +161,19 @@ The web interface provides:
 ### Building the Image
 
 ```bash
-docker build -t org.cirelli.hlsproxy.cameras .
+docker build -t org.cirelli.webrtc.cameras .
 ```
 
 ### Running Without Docker Compose
 
 ```bash
 docker run -d \
-  -p 8080:8080 \
+  -p 8080:80 \
+  -p 8889:8889 \
+  -p 8890:8890/udp \
   -v $(pwd)/streams.txt:/config/streams.txt:ro \
-  --name hlsproxy \
-  org.cirelli.hlsproxy.cameras
+  --name webrtc-cameras \
+  org.cirelli.webrtc.cameras
 ```
 
 ### Viewing Logs
@@ -180,8 +182,8 @@ docker run -d \
 # All logs
 docker compose logs -f
 
-# Specific service logs
-docker exec hlsproxy tail -f /var/log/supervisor/hlsproxy-cam1.log
+# MediaMTX logs (stream connections, errors)
+docker compose logs -f | grep -E "(mediamtx|rtsp|webrtc)"
 ```
 
 ## Troubleshooting
@@ -200,6 +202,12 @@ docker exec hlsproxy tail -f /var/log/supervisor/hlsproxy-cam1.log
 
 3. Ensure your camera is accessible from the Docker container (check firewall rules)
 
+### WebRTC connection failing
+
+1. Ensure ports 8889 (TCP) and 8890 (UDP) are accessible
+2. WebRTC requires UDP for media transport - ensure firewall allows UDP traffic
+3. Check browser console for WebRTC errors
+
 ### Stream buffering or lagging
 
 - Use the sub-stream (`subtype=1`) instead of main stream for lower bandwidth
@@ -217,21 +225,34 @@ Use the extended format with `-u` prefix:
 
 ### Components
 
-- **LIVE555 HLS Proxy** - Converts RTSP to HLS segments
-- **nginx** - Serves web files and HLS streams with proper CORS headers
-- **Supervisor** - Process manager for nginx and HLS proxy instances
-- **HLS.js** - JavaScript HLS player with Safari native fallback
+- **MediaMTX** - Media server that converts RTSP to WebRTC
+- **nginx** - Serves web files and proxies WHEP requests
+- **WebRTC (WHEP)** - Low-latency streaming protocol
 
-### HLS Output
+### Stream URLs
 
-Each camera stream produces:
-- `<cam_id>.m3u8` - HLS playlist file (updated continuously)
-- `<cam_id>-*.ts` - HLS segment files (6-second chunks)
+| Path | Description |
+|------|-------------|
+| `/cam1/whep` | WebRTC WHEP endpoint for camera 1 |
+| `/cam2/whep` | WebRTC WHEP endpoint for camera 2 |
+| `/api/streams.json` | JSON list of configured cameras |
 
 ### Browser Support
 
-- Chrome, Firefox, Edge - Uses HLS.js
-- Safari - Uses native HLS support
+WebRTC is supported in all modern browsers:
+- Chrome 23+
+- Firefox 22+
+- Safari 11+
+- Edge 12+
+
+### Comparison with HLS
+
+| Feature | WebRTC | HLS |
+|---------|--------|-----|
+| Latency | <1 second | 10-30 seconds |
+| Bandwidth | Single connection | Constant segment downloads |
+| CPU Usage | Lower | Higher (segment processing) |
+| Browser Support | All modern | All (with HLS.js) |
 
 ## License
 

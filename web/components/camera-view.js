@@ -1,6 +1,6 @@
 /**
- * Camera View Web Component
- * Usage: <camera-view src="/streams/cam1/cam1.m3u8" name="Front Door"></camera-view>
+ * Camera View Web Component - WebRTC Edition
+ * Usage: <camera-view src="/cam1/whep" name="Front Door"></camera-view>
  *
  * Supports lazy loading - streams only start when clicked.
  * Add autoplay attribute to start immediately: <camera-view src="..." autoplay></camera-view>
@@ -13,7 +13,7 @@ class CameraView extends HTMLElement {
     constructor() {
         super();
         this.attachShadow({ mode: 'open' });
-        this.hls = null;
+        this.pc = null;
         this.retryCount = 0;
         this.maxRetries = 5;
         this.retryDelay = 3000;
@@ -202,7 +202,7 @@ class CameraView extends HTMLElement {
             </style>
 
             <div class="container">
-                <video playsinline muted></video>
+                <video playsinline muted autoplay></video>
                 <div class="status paused"></div>
                 <div class="label">${this.escapeHtml(this.name)}</div>
                 <div class="controls">
@@ -297,81 +297,112 @@ class CameraView extends HTMLElement {
         }
 
         this.showLoading();
+        this.initWebRTC();
+    }
 
-        if (Hls.isSupported()) {
-            this.initHls();
-        } else if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
-            this.initNativeHls();
-        } else {
-            this.showError('HLS not supported');
+    async initWebRTC() {
+        try {
+            // Create peer connection
+            this.pc = new RTCPeerConnection({
+                iceServers: []  // No STUN/TURN needed for local network
+            });
+
+            // Handle incoming tracks
+            this.pc.ontrack = (evt) => {
+                this.video.srcObject = evt.streams[0];
+                this.showLive();
+            };
+
+            // Handle connection state changes
+            this.pc.onconnectionstatechange = () => {
+                switch (this.pc.connectionState) {
+                    case 'connected':
+                        this.showLive();
+                        break;
+                    case 'disconnected':
+                    case 'failed':
+                        this.handleConnectionError();
+                        break;
+                }
+            };
+
+            // Handle ICE connection state
+            this.pc.oniceconnectionstatechange = () => {
+                if (this.pc.iceConnectionState === 'failed') {
+                    this.handleConnectionError();
+                }
+            };
+
+            // Add transceivers for receiving video and audio
+            this.pc.addTransceiver('video', { direction: 'recvonly' });
+            this.pc.addTransceiver('audio', { direction: 'recvonly' });
+
+            // Create offer
+            const offer = await this.pc.createOffer();
+            await this.pc.setLocalDescription(offer);
+
+            // Wait for ICE gathering to complete
+            await this.waitForIceGathering();
+
+            // Send offer to WHEP endpoint
+            const response = await fetch(this.src, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/sdp'
+                },
+                body: this.pc.localDescription.sdp
+            });
+
+            if (!response.ok) {
+                throw new Error(`WHEP request failed: ${response.status}`);
+            }
+
+            // Set remote description from answer
+            const answerSdp = await response.text();
+            await this.pc.setRemoteDescription({
+                type: 'answer',
+                sdp: answerSdp
+            });
+
+        } catch (error) {
+            console.error('WebRTC error:', error);
+            this.handleConnectionError();
         }
     }
 
-    initHls() {
-        this.hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: false,        // Disable low latency to reduce CPU
-            backBufferLength: 10,         // Reduce back buffer
-            maxBufferLength: 6,           // Only buffer ~1 segment ahead
-            maxMaxBufferLength: 12,       // Cap max buffer
-            liveSyncDurationCount: 2,     // Stay closer to live edge
-            liveMaxLatencyDurationCount: 4,
-            manifestLoadingTimeOut: 10000,
-            manifestLoadingMaxRetry: 2,
-            levelLoadingTimeOut: 10000,
-            levelLoadingMaxRetry: 2,
-            fragLoadingTimeOut: 20000,
-            fragLoadingMaxRetry: 2,
-        });
-
-        this.hls.loadSource(this.src);
-        this.hls.attachMedia(this.video);
-
-        this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            this.video.play().catch(() => {});
-            this.showLive();
-        });
-
-        this.hls.on(Hls.Events.ERROR, (event, data) => {
-            if (data.fatal) {
-                switch (data.type) {
-                    case Hls.ErrorTypes.NETWORK_ERROR:
-                        this.handleNetworkError();
-                        break;
-                    case Hls.ErrorTypes.MEDIA_ERROR:
-                        this.hls.recoverMediaError();
-                        break;
-                    default:
-                        this.handleFatalError();
-                        break;
-                }
+    waitForIceGathering() {
+        return new Promise((resolve) => {
+            if (this.pc.iceGatheringState === 'complete') {
+                resolve();
+                return;
             }
+
+            const checkState = () => {
+                if (this.pc.iceGatheringState === 'complete') {
+                    this.pc.removeEventListener('icegatheringstatechange', checkState);
+                    resolve();
+                }
+            };
+
+            this.pc.addEventListener('icegatheringstatechange', checkState);
+
+            // Timeout after 2 seconds
+            setTimeout(() => {
+                this.pc.removeEventListener('icegatheringstatechange', checkState);
+                resolve();
+            }, 2000);
         });
     }
 
-    initNativeHls() {
-        this.video.src = this.src;
-
-        this.video.addEventListener('loadedmetadata', () => {
-            this.video.play().catch(() => {});
-            this.showLive();
-        });
-
-        this.video.addEventListener('error', () => {
-            this.handleNetworkError();
-        });
-    }
-
-    handleNetworkError() {
+    handleConnectionError() {
         if (this.retryCount < this.maxRetries) {
             this.retryCount++;
             this.showError(`Reconnecting... (${this.retryCount}/${this.maxRetries})`);
 
             setTimeout(() => {
-                if (this.hls) {
-                    this.hls.startLoad();
-                } else {
-                    this.video.load();
+                if (this.isPlaying) {
+                    this.destroyPlayer();
+                    this.initPlayer();
                 }
             }, this.retryDelay);
         } else {
@@ -379,23 +410,13 @@ class CameraView extends HTMLElement {
         }
     }
 
-    handleFatalError() {
-        this.destroyPlayer();
-        this.showError('Stream error');
-
-        setTimeout(() => {
-            this.retryCount = 0;
-            this.initPlayer();
-        }, this.retryDelay * 2);
-    }
-
     destroyPlayer() {
-        if (this.hls) {
-            this.hls.destroy();
-            this.hls = null;
+        if (this.pc) {
+            this.pc.close();
+            this.pc = null;
         }
         if (this.video) {
-            this.video.src = '';
+            this.video.srcObject = null;
         }
     }
 

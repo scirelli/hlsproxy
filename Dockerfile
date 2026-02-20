@@ -1,50 +1,27 @@
-# Stage 1: Build LIVE555 from source
-FROM debian:bookworm-slim AS builder
+# MediaMTX-based WebRTC streaming for security cameras
+FROM bluenviron/mediamtx:latest AS mediamtx
 
-LABEL org.opencontainers.image.name="org.cirelli.hlsproxy.cameras"
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libssl-dev \
-    wget \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /build
-
-# Download and extract LIVE555
-RUN wget -q https://download.live555.com/live555-latest.tar.gz \
-    && tar xzf live555-latest.tar.gz \
-    && rm live555-latest.tar.gz
-
-# Build LIVE555 with static linking
-WORKDIR /build/live
-RUN sed -i 's/CPLUSPLUS_FLAGS =/CPLUSPLUS_FLAGS = -std=c++20/' config.linux \
-    && ./genMakefiles linux \
-    && make -j$(nproc)
-
-# Stage 2: Runtime container
+# Runtime container with nginx for custom UI
 FROM debian:bookworm-slim
+
+LABEL org.opencontainers.image.name="org.cirelli.webrtc.cameras"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     nginx \
-    supervisor \
-    libssl3 \
     && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /var/www/html/streams \
     && mkdir -p /var/www/html/api \
     && mkdir -p /config \
-    && mkdir -p /var/log/supervisor \
+    && mkdir -p /usr/local/share/mediamtx \
     && chown -R www-data:www-data /var/www/html
 
-# Copy LIVE555 HLS Proxy binary
-COPY --from=builder /build/live/hlsProxy/live555HLSProxy /usr/local/bin/
+# Copy MediaMTX binary from official image
+COPY --from=mediamtx /mediamtx /usr/local/bin/mediamtx
+
+# Copy MediaMTX configuration template
+COPY mediamtx.yml /usr/local/share/mediamtx/mediamtx.yml
 
 # Copy nginx configuration
 COPY nginx/default.conf /etc/nginx/sites-available/default
-
-# Copy supervisor configuration
-COPY scripts/supervisor.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Copy web files
 COPY web/ /var/www/html/
@@ -53,6 +30,11 @@ COPY web/ /var/www/html/
 COPY scripts/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-EXPOSE 80
+# Ports:
+# 80 - nginx (web UI)
+# 8889 - MediaMTX WebRTC (HTTP/WHEP)
+# 8890 - MediaMTX WebRTC (UDP media)
+# 8554 - RTSP (internal only, not exposed)
+EXPOSE 80 8889 8890/udp
 
 ENTRYPOINT ["/entrypoint.sh"]

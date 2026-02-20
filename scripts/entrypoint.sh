@@ -2,9 +2,17 @@
 set -e
 
 STREAMS_FILE="/config/streams.txt"
-STREAMS_DIR="/var/www/html/streams"
 API_DIR="/var/www/html/api"
-SUPERVISOR_CONF="/etc/supervisor/conf.d/supervisord.conf"
+MEDIAMTX_CONFIG="/mediamtx.yml"
+MEDIAMTX_TEMPLATE="/usr/local/share/mediamtx/mediamtx.yml"
+
+# Copy template config if it exists, otherwise use bundled config
+if [ -f "$MEDIAMTX_TEMPLATE" ]; then
+    cp "$MEDIAMTX_TEMPLATE" "$MEDIAMTX_CONFIG"
+else
+    # Use config from build context (copied to root)
+    cp /var/www/html/../mediamtx.yml "$MEDIAMTX_CONFIG" 2>/dev/null || true
+fi
 
 # URL encode a string (for special characters in passwords)
 urlencode() {
@@ -51,8 +59,9 @@ fi
 
 echo "Parsing streams configuration..."
 
-# Initialize streams JSON array
+# Initialize streams JSON array and MediaMTX paths
 streams_json="["
+mediamtx_paths=""
 first_stream=true
 stream_count=0
 
@@ -63,7 +72,6 @@ while IFS= read -r line || [ -n "$line" ]; do
 
     stream_count=$((stream_count + 1))
     cam_id="cam${stream_count}"
-    cam_dir="${STREAMS_DIR}/${cam_id}"
 
     # Parse line: check for extended format with -u prefix
     if [[ "$line" =~ ^[[:space:]]*-u[[:space:]] ]]; then
@@ -74,7 +82,13 @@ while IFS= read -r line || [ -n "$line" ]; do
             rtsp_url="${BASH_REMATCH[3]}"
             display_name="${BASH_REMATCH[4]}"
             rtsp_url=$(echo "$rtsp_url" | xargs)  # trim whitespace
-            use_separate_auth=1
+
+            # Build URL with credentials
+            encoded_user=$(urlencode "$ext_user")
+            encoded_pass=$(urlencode "$ext_pass")
+            # Extract host/path from rtsp://host/path
+            rtsp_host_path="${rtsp_url#rtsp://}"
+            final_rtsp_url="rtsp://${encoded_user}:${encoded_pass}@${rtsp_host_path}"
         else
             echo "Warning: Could not parse extended format line: $line"
             continue
@@ -85,9 +99,19 @@ while IFS= read -r line || [ -n "$line" ]; do
             rtsp_url="${BASH_REMATCH[1]}"
             display_name="${BASH_REMATCH[2]}"
             rtsp_url=$(echo "$rtsp_url" | xargs)  # trim whitespace
-            use_separate_auth=0
-            ext_user=""
-            ext_pass=""
+
+            # Check if URL has embedded credentials
+            parse_rtsp_url "$rtsp_url"
+
+            if [ "$RTSP_HAS_CREDS" -eq 1 ]; then
+                # Extract and URL-encode credentials, rebuild URL
+                encoded_user=$(urlencode "$RTSP_USER")
+                encoded_pass=$(urlencode "$RTSP_PASS")
+                final_rtsp_url="rtsp://${encoded_user}:${encoded_pass}@${RTSP_REST}"
+            else
+                # No credentials in URL
+                final_rtsp_url="$rtsp_url"
+            fi
         else
             echo "Warning: Could not parse line: $line"
             continue
@@ -100,46 +124,10 @@ while IFS= read -r line || [ -n "$line" ]; do
 
     echo "Configuring stream ${stream_count}: ${display_name}"
 
-    # Create camera directory
-    mkdir -p "$cam_dir"
-    chown www-data:www-data "$cam_dir"
-
-    # Build HLS proxy command
-    # Use relative path for output so m3u8 contains relative segment URLs
-    hls_output="${cam_id}"
-
-    if [ "$use_separate_auth" -eq 1 ]; then
-        # Use -u flag for credentials
-        hls_cmd="live555HLSProxy -u \"${ext_user}\" \"${ext_pass}\" -t \"${rtsp_url}\" \"${hls_output}\""
-    else
-        # Check if URL has embedded credentials
-        parse_rtsp_url "$rtsp_url"
-
-        if [ "$RTSP_HAS_CREDS" -eq 1 ]; then
-            # Extract and URL-encode credentials, rebuild URL
-            encoded_user=$(urlencode "$RTSP_USER")
-            encoded_pass=$(urlencode "$RTSP_PASS")
-            clean_url="rtsp://${encoded_user}:${encoded_pass}@${RTSP_REST}"
-            hls_cmd="live555HLSProxy -t \"${clean_url}\" \"${hls_output}\""
-        else
-            # No credentials in URL
-            hls_cmd="live555HLSProxy -t \"${rtsp_url}\" \"${hls_output}\""
-        fi
-    fi
-
-    # Add to supervisor config
-    cat >> "$SUPERVISOR_CONF" << EOF
-
-[program:hlsproxy-${cam_id}]
-command=/bin/bash -c '${hls_cmd}'
-directory=${cam_dir}
-autostart=true
-autorestart=true
-startsecs=5
-startretries=3
-stderr_logfile=/var/log/supervisor/hlsproxy-${cam_id}-error.log
-stdout_logfile=/var/log/supervisor/hlsproxy-${cam_id}.log
-EOF
+    # Add MediaMTX path configuration
+    mediamtx_paths+="
+  ${cam_id}:
+    source: ${final_rtsp_url}"
 
     # Add to streams JSON
     if [ "$first_stream" = true ]; then
@@ -150,7 +138,7 @@ EOF
 
     # Escape display name for JSON
     escaped_name=$(echo "$display_name" | sed 's/\\/\\\\/g; s/"/\\"/g')
-    streams_json+="{\"id\":\"${cam_id}\",\"name\":\"${escaped_name}\",\"src\":\"/streams/${cam_id}/${cam_id}.m3u8\"}"
+    streams_json+="{\"id\":\"${cam_id}\",\"name\":\"${escaped_name}\",\"src\":\"/${cam_id}/whep\"}"
 
 done < "$STREAMS_FILE"
 
@@ -161,8 +149,14 @@ streams_json+="]"
 echo "$streams_json" > "${API_DIR}/streams.json"
 chown www-data:www-data "${API_DIR}/streams.json"
 
-echo "Configured ${stream_count} stream(s)"
-echo "Starting supervisor..."
+# Append paths to MediaMTX config
+echo "$mediamtx_paths" >> "$MEDIAMTX_CONFIG"
 
-# Start supervisor
-exec /usr/bin/supervisord -n -c /etc/supervisor/supervisord.conf
+echo "Configured ${stream_count} stream(s)"
+echo "Starting services..."
+
+# Start nginx in background
+nginx &
+
+# Start MediaMTX (foreground)
+exec /usr/local/bin/mediamtx "$MEDIAMTX_CONFIG"
