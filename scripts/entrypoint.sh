@@ -14,6 +14,14 @@ else
     cp /var/www/html/../mediamtx.yml "$MEDIAMTX_CONFIG" 2>/dev/null || true
 fi
 
+# If WEBRTC_HOST is set, configure MediaMTX to advertise it for WebRTC ICE
+# Can be a domain name (e.g., cameras.example.com) or IP address
+if [ -n "$WEBRTC_HOST" ]; then
+    echo "Configuring WebRTC host: $WEBRTC_HOST"
+    # Insert webrtcAdditionalHosts after webrtcLocalUDPAddress line
+    sed -i "/webrtcLocalUDPAddress:/a webrtcAdditionalHosts: [$WEBRTC_HOST]" "$MEDIAMTX_CONFIG"
+fi
+
 # URL encode a string (for special characters in passwords)
 urlencode() {
     local string="$1"

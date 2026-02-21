@@ -4,7 +4,11 @@ services:
     ports:
       - "8080:80"         # Web UI (nginx)
       - "8889:8889"       # WebRTC HTTP (WHEP signaling)
-      - "8890:8890/udp"   # WebRTC UDP (ICE mux)
+      - "8890:8890/udp"   # WebRTC UDP (ICE)
+    environment:
+      # Set to the hostname/IP that browsers use to reach this server
+      # Required for WebRTC ICE to work through Docker's NAT
+      - WEBRTC_HOST=cameras.cirelli.internal
     volumes:
       - ./streams.txt:/config/streams.txt:ro
     restart: unless-stopped

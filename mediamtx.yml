@@ -25,8 +25,10 @@ rtmp: no
 webrtc: yes
 webrtcAddress: :8889
 # Use a single UDP port for ICE (instead of ephemeral range)
-webrtcICEUDPMuxAddress: :8890
+webrtcLocalUDPAddress: :8890
 webrtcICEServers2: []
+# Additional IPs to announce - will be set by entrypoint if EXTERNAL_IP is provided
+# webrtcAdditionalHosts: []
 
 ###############################################
 # HLS server (disabled - using WebRTC only)
