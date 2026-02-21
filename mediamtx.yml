@@ -12,20 +12,31 @@ logDestinations: [stdout]
 
 rtsp: yes
 rtspAddress: :8554
-protocols: [tcp]
+rtspTransports: [tcp]
+
+###############################################
+# RTMP server (disabled)
+
+rtmp: no
 
 ###############################################
 # WebRTC server
 
 webrtc: yes
 webrtcAddress: :8889
-webrtcLocalUDPAddress: :8890
+# Use a single UDP port for ICE (instead of ephemeral range)
+webrtcICEUDPMuxAddress: :8890
 webrtcICEServers2: []
 
 ###############################################
 # HLS server (disabled - using WebRTC only)
 
 hls: no
+
+###############################################
+# SRT server (disabled)
+
+srt: no
 
 ###############################################
 # API (for health checks and monitoring)

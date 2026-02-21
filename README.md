@@ -40,7 +40,7 @@ A containerized solution to convert RTSP security camera streams to WebRTC for l
 Exposed Ports:
   - 80:   Web UI (mapped to 8080 in docker-compose)
   - 8889: WebRTC HTTP (WHEP signaling)
-  - 8890: WebRTC UDP (media)
+  - 8890: WebRTC UDP (ICE mux)
 ```
 
 ## Quick Start
@@ -131,12 +131,12 @@ rtsp://<ip>:554/cam/realmonitor?channel=1&subtype=1
 
 ```yaml
 services:
-  hlsproxy:
+  webrtc-cameras:
     image: org.cirelli.webrtc.cameras
     ports:
       - "8080:80"         # Web UI
       - "8889:8889"       # WebRTC HTTP (WHEP signaling)
-      - "8890:8890/udp"   # WebRTC UDP (media)
+      - "8890:8890/udp"   # WebRTC UDP (ICE mux)
     volumes:
       - ./streams.txt:/config/streams.txt:ro
     restart: unless-stopped

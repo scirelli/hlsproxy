@@ -33,8 +33,8 @@ RUN chmod +x /entrypoint.sh
 # Ports:
 # 80 - nginx (web UI)
 # 8889 - MediaMTX WebRTC (HTTP/WHEP)
-# 8890 - MediaMTX WebRTC (UDP media)
-# 8554 - RTSP (internal only, not exposed)
+# 8890 - MediaMTX WebRTC (UDP/ICE mux)
+# 8554 - RTSP (internal only)
 EXPOSE 80 8889 8890/udp
 
 ENTRYPOINT ["/entrypoint.sh"]
