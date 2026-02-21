@@ -4,40 +4,47 @@
     padding: 0;
 }
 
+html, body {
+    height: 100%;
+    overflow: hidden;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-    background: #0a0a0a;
+    background: #000;
     color: #fff;
-    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 24px;
+    padding: 8px 12px;
     background: #111;
     border-bottom: 1px solid #222;
+    flex-shrink: 0;
 }
 
 header h1 {
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 600;
     color: #fff;
 }
 
 header .controls {
     display: flex;
-    gap: 8px;
+    gap: 6px;
 }
 
 header button {
-    padding: 8px 16px;
+    padding: 6px 12px;
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     background: #333;
     color: #fff;
-    font-size: 14px;
+    font-size: 13px;
     cursor: pointer;
     transition: background 0.2s;
 }
@@ -47,30 +54,54 @@ header button:hover {
 }
 
 main {
-    padding: 24px;
+    flex: 1;
+    padding: 4px;
+    overflow: hidden;
 }
 
 .camera-grid {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 4px;
+    height: 100%;
+    /* Auto-fit columns based on available space */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-auto-rows: 1fr;
 }
 
-@media (min-width: 640px) {
-    .camera-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (min-width: 1024px) {
+/* Optimize grid layout based on camera count and screen size */
+/* For 9 cameras: 3x3 grid on larger screens */
+@media (min-width: 900px) and (min-height: 600px) {
     .camera-grid {
         grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(3, 1fr);
     }
 }
 
-@media (min-width: 1400px) {
+/* 2x2 for smaller screens or fewer cameras */
+@media (max-width: 899px) and (min-width: 500px) {
     .camera-grid {
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(2, 1fr);
+        grid-auto-rows: 1fr;
+    }
+}
+
+/* Single column for mobile */
+@media (max-width: 499px) {
+    .camera-grid {
+        grid-template-columns: 1fr;
+        grid-auto-rows: minmax(200px, 1fr);
+        overflow-y: auto;
+    }
+
+    main {
+        overflow-y: auto;
+    }
+}
+
+/* Wide screens: can fit more columns */
+@media (min-width: 1600px) {
+    .camera-grid {
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
     }
 }
 
@@ -81,6 +112,7 @@ main {
     padding: 48px;
     color: #888;
     font-size: 16px;
+    align-self: center;
 }
 
 .error-message {
@@ -88,11 +120,6 @@ main {
 }
 
 camera-view {
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-camera-view:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.4);
+    min-height: 0;
+    min-width: 0;
 }

@@ -58,10 +58,11 @@ class CameraView extends HTMLElement {
                 :host {
                     display: block;
                     position: relative;
-                    background: #1a1a1a;
-                    border-radius: 8px;
+                    background: #000;
+                    border-radius: 4px;
                     overflow: hidden;
-                    aspect-ratio: 16 / 9;
+                    height: 100%;
+                    min-height: 150px;
                 }
 
                 .container {
@@ -83,20 +84,20 @@ class CameraView extends HTMLElement {
                     bottom: 0;
                     left: 0;
                     right: 0;
-                    padding: 8px 12px;
+                    padding: 4px 8px;
                     background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
                     color: #fff;
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    font-size: 14px;
+                    font-size: 12px;
                     font-weight: 500;
                 }
 
                 .status {
                     position: absolute;
-                    top: 8px;
-                    right: 8px;
-                    width: 10px;
-                    height: 10px;
+                    top: 4px;
+                    right: 4px;
+                    width: 8px;
+                    height: 8px;
                     border-radius: 50%;
                     background: #666;
                     transition: background 0.3s;
@@ -104,7 +105,7 @@ class CameraView extends HTMLElement {
 
                 .status.live {
                     background: #22c55e;
-                    box-shadow: 0 0 8px #22c55e;
+                    box-shadow: 0 0 6px #22c55e;
                 }
 
                 .status.error {
@@ -149,22 +150,22 @@ class CameraView extends HTMLElement {
                 }
 
                 .overlay-icon {
-                    font-size: 48px;
-                    margin-bottom: 12px;
+                    font-size: 36px;
+                    margin-bottom: 8px;
                 }
 
                 .overlay-text {
-                    font-size: 14px;
+                    font-size: 12px;
                     text-align: center;
                     max-width: 80%;
                 }
 
                 .controls {
                     position: absolute;
-                    top: 8px;
-                    left: 8px;
+                    top: 4px;
+                    left: 4px;
                     display: flex;
-                    gap: 4px;
+                    gap: 2px;
                     opacity: 0;
                     transition: opacity 0.3s;
                 }
@@ -174,17 +175,17 @@ class CameraView extends HTMLElement {
                 }
 
                 .control-btn {
-                    width: 32px;
-                    height: 32px;
+                    width: 24px;
+                    height: 24px;
                     border: none;
-                    border-radius: 4px;
+                    border-radius: 3px;
                     background: rgba(0, 0, 0, 0.6);
                     color: #fff;
                     cursor: pointer;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 16px;
+                    font-size: 12px;
                     transition: background 0.2s;
                 }
 
